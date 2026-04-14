@@ -224,6 +224,7 @@ router.post(
         riderId,
         pickup,
         dropoff,
+        driverId: null,
         loadDescription,
         loadWeight,
         carKind,
@@ -818,7 +819,112 @@ router.get(
     }
   },
 );
+/**
+ * 9) Get all trips by riderId
+ * GET /api/trips/rider/:riderId
+ * Query: ?page=1&limit=20
+ * Returns: Paginated list of all trips for a specific user
+ */
+router.get(
+  '/trips/rider/:riderId',
+  optionalAuthenticateJWT(passport),
+  async (req: Request, res: Response) => {
+    try {
+      const { riderId } = req.params;
 
+      // Validate userId
+      // if (!mongoose.Types.ObjectId.isValid(riderId)) {
+      //   return res.status(400).json({ error: 'Invalid userId' });
+      // }
+
+      // Extract pagination parameters from query
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = parseInt(req.query.limit as string) || 20;
+      const skip = (page - 1) * limit;
+
+      if (page < 1 || limit < 1) {
+        return res
+          .status(400)
+          .json({ error: 'page and limit must be positive integers' });
+      }
+
+      // Count total trips for this user
+      const totalTrips = await Trip.countDocuments({ riderId });
+
+      // Fetch paginated trips for this user
+      const trips = await Trip.find({ riderId })
+        .skip(skip)
+        .limit(limit)
+        .sort({ tripTime: -1 }); // Most recent first
+
+      return res.status(200).json({
+        success: true,
+        data: trips,
+        total: totalTrips,
+        page,
+        limit,
+        totalPages: Math.ceil(totalTrips / limit),
+        hasMore: page * limit < totalTrips,
+      });
+    } catch (err) {
+      console.error('Error in /trips/user/:riderId', err);
+      return res.status(500).json({ error: 'Internal server error' });
+    }
+  },
+);
+/**
+ * 9) Get all trips by driverId
+ * GET /api/trips/driver/:driverId
+ * Query: ?page=1&limit=20
+ * Returns: Paginated list of all trips for a specific user
+ */
+router.get(
+  '/trips/driver/:driverId',
+  optionalAuthenticateJWT(passport),
+  async (req: Request, res: Response) => {
+    try {
+      const { driverId } = req.params;
+
+      // Validate driverId
+      // if (!mongoose.Types.ObjectId.isValid(driverId)) {
+      //   return res.status(400).json({ error: 'Invalid driverId' });
+      // }
+
+      // Extract pagination parameters from query
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = parseInt(req.query.limit as string) || 20;
+      const skip = (page - 1) * limit;
+
+      if (page < 1 || limit < 1) {
+        return res
+          .status(400)
+          .json({ error: 'page and limit must be positive integers' });
+      }
+
+      // Count total trips for this user
+      const totalTrips = await Trip.countDocuments({ driverId });
+
+      // Fetch paginated trips for this user
+      const trips = await Trip.find({ driverId })
+        .skip(skip)
+        .limit(limit)
+        .sort({ tripTime: -1 }); // Most recent first
+
+      return res.status(200).json({
+        success: true,
+        data: trips,
+        total: totalTrips,
+        page,
+        limit,
+        totalPages: Math.ceil(totalTrips / limit),
+        hasMore: page * limit < totalTrips,
+      });
+    } catch (err) {
+      console.error('Error in /trips/user/:driverId', err);
+      return res.status(500).json({ error: 'Internal server error' });
+    }
+  },
+);
 // Global error handler for all API routes
 router.use(routeErrorHandler);
 

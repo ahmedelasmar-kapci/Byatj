@@ -26,7 +26,7 @@ const userSchema = new Schema<Iuser>(
       gender: { type: String, trim: true, default: '' },
       nationality: { type: String, trim: true, default: 'Libyan' },
       profilePicture: { type: [String], default: [] },
-      dateOfBirth: { type: Schema.Types.Date, default: '' },
+      dateOfBirth: { type: Schema.Types.Date, default: null },
     },
 
     role: {
@@ -101,10 +101,10 @@ const userSchema = new Schema<Iuser>(
 );
 
 // Sparse unique index for email when present
-userSchema.index(
-  { 'contactInfo.email.value': 1 },
-  { unique: true, sparse: true },
-);
+// userSchema.index(
+//   { 'contactInfo.email.value': 1 },
+//   { unique: true, sparse: true },
+// );
 
 // Virtual to get the Saved list for a user (one-to-one)
 userSchema.virtual('saved', {

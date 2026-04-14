@@ -378,6 +378,7 @@ export default (io: Server, socket: Socket) => {
       const trip = await Trip.create({
         riderId,
         pickup,
+        driverId: null,
         dropoff,
         loadDescription,
         loadWeight,
