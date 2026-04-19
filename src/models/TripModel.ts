@@ -7,13 +7,14 @@ const LocationSchema = new Schema<ILocation>(
     lat: { type: Number, required: true },
     lng: { type: Number, required: true },
     address: { type: String },
+    updatedAt: { type: Date, default: Date.now },
   },
   { _id: false },
 );
 /*
 loadDescription : String?
 loadWeight:double?
-carKind: String? 
+carKind: String?
 transportType:String?
 isScheduled:Boolean?
 tripTime: long?
@@ -90,6 +91,8 @@ const TripSchema = new Schema<ITrip>(
     isScheduled: { type: Boolean, default: false },
     tripTime: { type: Number, default: Date.now },
     completedAt: { type: Date },
+
+    lastDriverLocation: { type: LocationSchema },
   },
   {
     timestamps: true, // adds createdAt & updatedAt

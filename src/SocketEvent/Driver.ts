@@ -8,7 +8,7 @@ interface DriverOnlinePayload {
   lat: number;
   lng: number;
 }
-interface DriverLocationPayload {
+export interface DriverLocationPayload {
   driverId: string;
   tripId: string;
   lat: number;
@@ -138,73 +138,76 @@ export default (io: Server, socket: Socket) => {
    * driver:location
    * data: { driverId, tripId, lat, lng }
    */
-  socket.on(
-    'driver:location',
-    async (data: DriverLocationPayload, cb?: any) => {
-      try {
-        const { driverId, tripId, lat, lng } = data;
-
-        if (
-          !driverId ||
-          !tripId ||
-          typeof lat !== 'number' ||
-          typeof lng !== 'number'
-        ) {
-          const err =
-            'driverId, tripId, lat (number), lng (number) are required';
-          logger.error(err);
-          cb?.({ success: false, error: err });
-          return;
-        }
-        const driver = await Driver.findOne({ driverId });
-        if (!driver) {
-          const err = 'Driver not found';
-          logger.error(err);
-          cb?.({ success: false, error: err });
-          return;
-        }
-        if (!driver.online) {
-          const err = 'Driver not online';
-          logger.error(err);
-          cb?.({ success: false, error: err });
-          return;
-        }
-        await Driver.findOneAndUpdate(
-          { driverId },
-          {
-            $set: {
-              lastLocation: { lat, lng, updatedAt: new Date() },
-              location: { type: 'Point', coordinates: [lng, lat] },
-              online: true,
-              lastOnlineAt: new Date(),
-            },
-          },
-          { upsert: true, new: true },
-        );
-
-        // optionally attach last driver location to trip
-        await Trip.findByIdAndUpdate(tripId, {
-          $set: {
-            // lastDriverLocation: { lat, lng, updatedAt: new Date() },
-          },
-        }).catch(() => {});
-
-        logger.info(
-          `SOCKET driver location: ${driverId}, trip=${tripId}, ${lat}, ${lng}`,
-        );
-
-        io.to(`trip:${tripId}`).emit('driver:location:update', {
+  socket.on('driver:location', async (data: DriverOnlinePayload, cb?: any) => {
+    try {
+      const { driverId, lat, lng } = data;
+      if (!driverId || typeof lat !== 'number' || typeof lng !== 'number') {
+        const err = 'driverId, lat (number), lng (number) are required';
+        logger.error(err);
+        cb?.({ success: false, error: err });
+        io.to(`drivers:online`).emit('driver:location:update', {
           driverId,
           lat,
           lng,
+          success: false,
+          error: err,
           updatedAt: new Date(),
         });
-
-        cb?.({ success: true, driver });
-      } catch (err) {
-        logger.error('Error in socket driver:location', err as any);
-        cb?.({ success: false, error: 'Internal server error' });
+        return;
       }
-    },
-  );
+      const driver = await Driver.findOne({ driverId });
+      if (!driver) {
+        const err = 'Driver not found';
+        logger.error(err);
+        cb?.({ success: false, error: err });
+        io.to(`drivers:online`).emit('driver:location:update', {
+          driverId,
+          lat,
+          lng,
+          success: false,
+          error: err,
+          updatedAt: new Date(),
+        });
+        return;
+      }
+      if (!driver?.online) {
+        const err = 'Driver not online';
+        logger.error(err);
+        cb?.({ success: false, error: err });
+        io.emit('driver:location:update', {
+          driverId,
+          lat,
+          lng,
+          success: false,
+          error: err,
+          updatedAt: new Date(),
+        });
+        return;
+      }
+      await Driver.findOneAndUpdate(
+        { driverId },
+        {
+          $set: {
+            lastLocation: { lat, lng, updatedAt: new Date() },
+            location: { type: 'Point', coordinates: [lng, lat] },
+            online: true,
+            lastOnlineAt: new Date(),
+          },
+        },
+        { upsert: true, new: true },
+      );
+
+      logger.info(`SOCKET driver location: ${driverId},  ${lat}, ${lng}`);
+
+      cb?.({ success: true, driver });
+      io.to(`drivers:online`).emit('driver:location:update', {
+        success: true,
+        driver,
+        updatedAt: new Date(),
+      });
+    } catch (err) {
+      logger.error('Error in socket driver:location', err as any);
+      cb?.({ success: false, error: 'Internal server error' });
+    }
+  });
 };

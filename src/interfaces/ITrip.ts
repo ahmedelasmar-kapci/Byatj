@@ -15,6 +15,7 @@ export interface ILocation {
   lat: number;
   lng: number;
   address?: string;
+  updatedAt?: Date;
 }
 
 export interface INegotiation {
@@ -47,4 +48,5 @@ export interface ITrip extends Document {
   createdAt: Date;
   updatedAt: Date;
   completedAt?: Date;
+  lastDriverLocation: ILocation;
 }
