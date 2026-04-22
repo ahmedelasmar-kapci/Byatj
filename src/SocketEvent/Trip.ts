@@ -8,8 +8,8 @@ import { TripStatus } from '../interfaces/ITrip';
 import { CarKindEnum } from '../interfaces/ICar';
 import { DriverLocationPayload } from './Driver';
 import { logger } from '../../Utils/Logger';
-import { OfferModel } from '../models/offerModel';
-import { validateBase } from '../validation/offer';
+import { validateBase } from '../validation/offer/index';
+import OfferModel from '../models/offerModel';
 
 // export default (io: Server, socket: Socket) => {
 //   /**
