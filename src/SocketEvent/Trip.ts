@@ -8,6 +8,8 @@ import { TripStatus } from '../interfaces/ITrip';
 import { CarKindEnum } from '../interfaces/ICar';
 import { DriverLocationPayload } from './Driver';
 import { logger } from '../../Utils/Logger';
+import { OfferModel } from '../models/offerModel';
+import { validateBase } from '../validation/offer';
 
 // export default (io: Server, socket: Socket) => {
 //   /**
@@ -346,7 +348,6 @@ export default (io: Server, socket: Socket) => {
         cb?.({ success: false, error: err });
         return;
       }
-
       if (
         typeof pickup.lat !== 'number' ||
         typeof pickup.lng !== 'number' ||
@@ -1464,4 +1465,295 @@ export default (io: Server, socket: Socket) => {
       cb?.({ success: false, error: 'Internal server error' });
     }
   });
+  socket.on(
+    'offer:send',
+    async (
+      data: {
+        tripId: string;
+        riderId: string;
+        driverId: string;
+        amount: number;
+        role: 'driver' | 'rider';
+      },
+      cb?: (res: any) => void,
+    ) => {
+      try {
+        const { tripId, riderId, driverId, amount, role } = data || {};
+        const roomName = tripRoom(tripId);
+
+        // ── validation ──
+        const baseError = validateBase({ tripId, riderId, driverId, amount });
+        if (baseError) {
+          cb?.({ success: false, error: baseError });
+          io.to(roomName).emit('offer:update', {
+            success: false,
+            error: baseError,
+          });
+          return;
+        }
+
+        if (role !== 'driver' && role !== 'rider') {
+          cb?.({ success: false, error: 'role must be "driver" or "rider"' });
+          io.to(roomName).emit('offer:update', {
+            success: false,
+            error: 'role must be "driver" or "rider"',
+          });
+          return;
+        }
+
+        // ── load trip ──
+        const trip = await Trip.findById(tripId);
+        if (!trip) {
+          cb?.({ success: false, error: 'Trip not found' });
+          io.to(roomName).emit('offer:update', {
+            success: false,
+            error: 'Trip not found',
+          });
+          return;
+        }
+
+        if (!['requested', 'negotiating'].includes(trip.status)) {
+          cb?.({
+            success: false,
+            error: 'Negotiation not allowed for current trip status',
+          });
+          io.to(roomName).emit('offer:update', {
+            success: false,
+            error: 'Negotiation not allowed for current trip status',
+          });
+          return;
+        }
+        const maxNegotiations = trip.maxNegotiations ?? 3;
+        const existingCount = await OfferModel.countDocuments({
+          tripId,
+          driverId,
+          riderId,
+          // only driver offers count toward the limit
+          role: 'driver',
+          status: { $ne: 'cancelled' },
+        });
+
+        if (role === 'driver' && existingCount >= maxNegotiations) {
+          const error = 'Maximum number of negotiations reached';
+          cb?.({
+            success: false,
+            error,
+            negotiationCount: existingCount,
+            maxNegotiations,
+          });
+          io.to(roomName).emit('offer:update', {
+            success: false,
+            error,
+            tripId,
+            driverId,
+            riderId,
+            negotiationCount: existingCount,
+            maxNegotiations,
+          });
+          return;
+        }
+
+        // ── create offer ──
+        const offer = await OfferModel.create({
+          tripId,
+          riderId,
+          driverId,
+          amount,
+          role,
+          status: 'negotiating',
+        });
+
+        // keep trip status in sync
+        await Trip.findByIdAndUpdate(tripId, {
+          $set: { status: 'negotiating', fare: amount },
+        });
+
+        const payload = {
+          success: true,
+          offerId: offer._id,
+          tripId,
+          riderId,
+          driverId,
+          amount,
+          role,
+          status: offer.status,
+          negotiationCount: 0,
+          // negotiationCount:
+          //   role === 'driver' ? existingCount + 1 : existingCount,
+          maxNegotiations,
+        };
+
+        io.to(roomName).emit('offer:send', payload);
+        io.to(roomName).emit('offer:update', payload);
+        cb?.({ success: true, offer });
+      } catch (err) {
+        console.error('Error in offer:send', err);
+        cb?.({ success: false, error: 'offer:update Failed' });
+      }
+    },
+  );
+
+  // ─── cancelOffer ──────────────────────────────────────────────────────────────
+  // Sets offer status → 'cancelled'
+  // Emits: offer:update to the trip room
+
+  socket.on(
+    'offer:cancel',
+    async (
+      data: { offerId: string; userId: string },
+      cb?: (res: any) => void,
+    ) => {
+      try {
+        const { offerId, userId } = data || {};
+
+        if (!offerId) {
+          cb?.({ success: false, error: 'offerId is required' });
+          return;
+        }
+        if (!userId) {
+          cb?.({ success: false, error: 'userId is required' });
+          return;
+        }
+
+        const offer = await OfferModel.findById(offerId);
+        if (!offer) {
+          cb?.({ success: false, error: 'Offer not found' });
+          return;
+        }
+
+        // Only the offer creator (driverId or riderId matching their role) may cancel
+        // const isOwner =
+        // (offer.role === 'driver' && offer.driverId === userId)
+        //     ||(offer.role === 'rider' && offer.riderId === userId);
+
+        // if (!isOwner) {
+        //   cb?.({
+        //     success: false,
+        //     error: 'Not authorized to cancel this offer',
+        //   });
+        //   return;
+        // }
+
+        if (offer.status !== 'negotiating') {
+          cb?.({
+            success: false,
+            error: `Cannot cancel an offer with status "${offer.status}"`,
+          });
+          return;
+        }
+
+        offer.status = 'cancelled';
+        await offer.save();
+
+        const roomName = tripRoom(offer.tripId);
+        const payload = {
+          success: true,
+          offerId: offer._id,
+          tripId: offer.tripId,
+          riderId: offer.riderId,
+          driverId: offer.driverId,
+          amount: offer.amount,
+          role: offer.role,
+          status: offer.status,
+        };
+
+        io.to(roomName).emit('offer:update', payload);
+        cb?.({ success: true, offer });
+      } catch (err) {
+        console.error('Error in offer:cancel', err);
+        cb?.({ success: false, error: 'Internal server error' });
+      }
+    },
+  );
+
+  // ─── acceptOffer ──────────────────────────────────────────────────────────────
+  // Sets offer status → 'accepted'
+  // Writes { amount, driverId } back onto the Trip document
+  // Emits: offer:update to the trip room
+
+  socket.on(
+    'offer:accept',
+    async (
+      data: { offerId: string; userId: string },
+      cb?: (res: any) => void,
+    ) => {
+      try {
+        const { offerId, userId } = data || {};
+
+        if (!offerId) {
+          cb?.({ success: false, error: 'offerId is required' });
+          return;
+        }
+        if (!userId) {
+          cb?.({ success: false, error: 'userId is required' });
+          return;
+        }
+
+        const offer = await OfferModel.findById(offerId);
+        if (!offer) {
+          cb?.({ success: false, error: 'Offer not found' });
+          return;
+        }
+
+        if (offer.status !== 'negotiating') {
+          cb?.({
+            success: false,
+            error: `Cannot accept an offer with status "${offer.status}"`,
+          });
+          return;
+        }
+
+        // The *counter-party* accepts:
+        //   driver offer → rider accepts  (userId === riderId)
+        //   rider  offer → driver accepts (userId === driverId)
+        // const isCounterParty =
+        //   (offer.role === 'driver' && offer.riderId === userId) ||
+        //   (offer.role === 'rider' && offer.driverId === userId);
+
+        // if (!isCounterParty) {
+        //   cb?.({
+        //     success: false,
+        //     error: 'Not authorized to accept this offer',
+        //   });
+        //   return;
+        // }
+
+        // ── mark offer accepted ──
+        offer.status = 'accepted';
+        await offer.save();
+
+        // ── update trip: stamp accepted fare + driverId ──
+        const updatedTrip = await Trip.findByIdAndUpdate(
+          offer.tripId,
+          {
+            $set: {
+              fare: offer.amount,
+              driverId: offer.driverId,
+              status: 'accepted',
+            },
+          },
+          { new: true },
+        );
+
+        const roomName = tripRoom(offer.tripId);
+        const payload = {
+          success: true,
+          offerId: offer._id,
+          tripId: offer.tripId,
+          riderId: offer.riderId,
+          driverId: offer.driverId,
+          amount: offer.amount,
+          role: offer.role,
+          status: offer.status,
+          trip: updatedTrip,
+        };
+
+        io.to(roomName).emit('offer:update', payload);
+        cb?.({ success: true, offer, trip: updatedTrip });
+      } catch (err) {
+        console.error('Error in offer:accept', err);
+        cb?.({ success: false, error: 'Internal server error' });
+      }
+    },
+  );
 };
