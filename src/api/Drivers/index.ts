@@ -31,7 +31,7 @@ router.get('/online', authenticateJWT(passport), allDrivers); // Consider restri
 router.post('/drivers/nearby', authenticateJWT(passport), AllNearstDriver);
 
 router.get(
-  '/:id',
+  'users/:id',
   authenticateJWT(passport),
   //   enforceUserOwnership('user'),
   getUserById,

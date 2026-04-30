@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import mongoose, { Types } from 'mongoose';
+import { createLanguageService } from 'typescript';
 
 // Augment the Express Request type to include authenticatedQuery used by middleware
 interface AuthenticatedQuery {
@@ -72,13 +73,11 @@ export const enforceUserOwnership = (
               (mongoose.models as any)?.UnitModel ||
               (mongoose.models as any)?.Unit;
             if (!Unit || typeof Unit.findById !== 'function') {
-              return res
-                .status(501)
-                .json({
-                  success: false,
-                  message: 'Unit model not available',
-                  code: 'MODEL_NOT_AVAILABLE',
-                });
+              return res.status(501).json({
+                success: false,
+                message: 'Unit model not available',
+                code: 'MODEL_NOT_AVAILABLE',
+              });
             }
             resource = await Unit.findById(resourceId);
             if (!resource) {
@@ -110,13 +109,11 @@ export const enforceUserOwnership = (
               (mongoose.models as any)?.RentalModel ||
               (mongoose.models as any)?.Rental;
             if (!Rental || typeof Rental.findById !== 'function') {
-              return res
-                .status(501)
-                .json({
-                  success: false,
-                  message: 'Rental model not available',
-                  code: 'MODEL_NOT_AVAILABLE',
-                });
+              return res.status(501).json({
+                success: false,
+                message: 'Rental model not available',
+                code: 'MODEL_NOT_AVAILABLE',
+              });
             }
             resource = await Rental.findById(resourceId);
             if (!resource) {
@@ -155,13 +152,11 @@ export const enforceUserOwnership = (
                 !Notification ||
                 typeof Notification.findById !== 'function'
               ) {
-                return res
-                  .status(501)
-                  .json({
-                    success: false,
-                    message: 'Notification model not available',
-                    code: 'MODEL_NOT_AVAILABLE',
-                  });
+                return res.status(501).json({
+                  success: false,
+                  message: 'Notification model not available',
+                  code: 'MODEL_NOT_AVAILABLE',
+                });
               }
               resource = await Notification.findById(resourceId);
               if (!resource) {
@@ -192,7 +187,10 @@ export const enforceUserOwnership = (
 
           case 'user':
             // Users can only access/modify their own profile unless admin
-            if (resourceId !== user.id && resourceId !== authUserIdStr) {
+            if (resourceId !== user.id /*  && resourceId !== authUserIdStr*/) {
+              console.log('resourceId', resourceId);
+              console.log('user.id', user.id);
+              // console.log(authUserIdStr);
               return res.status(403).json({
                 success: false,
                 message: 'Access denied: You can only access your own profile',

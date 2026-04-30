@@ -19,7 +19,12 @@ const router = express.Router();
 // Public: none (keep user data protected)
 
 // Authenticated routes
-router.get('/', authenticateJWT(passport), allUsers); // Consider restricting to admin on service side if needed
+router.get(
+  '/',
+  authenticateJWT(passport),
+  enforceUserOwnership('user'),
+  allUsers,
+); // Consider restricting to admin on service side if needed
 router.get(
   '/:id',
   authenticateJWT(passport),

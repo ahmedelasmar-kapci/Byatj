@@ -57,6 +57,24 @@ export const allDrivers = asyncHandler(async (req: Request, res: Response) => {
     res.status(500).json({ message: 'Failed to fetch users', error });
   }
 });
+export const getUserById = asyncHandler(async (req: Request, res: Response) => {
+  try {
+    const userId = req.params.id;
+    if (!userId) {
+      res.status(404).json({ message: 'UserID Is required' });
+      return;
+    }
+    const user = await UserModel.findOne({ userID: userId });
+    if (!user) {
+      res.status(404).json({ message: 'User not found' });
+      return;
+    }
+    res.status(200).json(user);
+  } catch (error) {
+    console.error('Error fetching user by ID:', error);
+    res.status(500).json({ message: 'Failed to fetch user', error });
+  }
+});
 export const AllNearstDriver = asyncHandler(
   async (req: Request, res: Response) => {
     try {
