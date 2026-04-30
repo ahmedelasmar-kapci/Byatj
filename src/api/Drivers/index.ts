@@ -2,7 +2,8 @@ import express from 'express';
 import passport from 'passport';
 import { authenticateJWT } from '../Auth/middlewares/authenticateJWT';
 import { enforceUserOwnership } from '../../middlewares/userIsolation';
-import { allUsers, getUserById } from '../../services/userServices';
+import { allUsers } from '../../services/userServices';
+import { getUserById } from '../../services/driversServices';
 import { uploadImage } from '../../middlewares/upload';
 import { allDrivers, AllNearstDriver } from '../../services/driversServices';
 
