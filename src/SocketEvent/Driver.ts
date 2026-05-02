@@ -145,7 +145,8 @@ export default (io: Server, socket: Socket) => {
         const err = 'driverId, lat (number), lng (number) are required';
         logger.error(err);
         cb?.({ success: false, error: err });
-        io.to(`drivers:online`).emit('driver:location:update', {
+        // io.to(`drivers:online`).emit('driver:location:update', {
+        io.emit('driver:location:update', {
           driverId,
           lat,
           lng,
@@ -160,7 +161,8 @@ export default (io: Server, socket: Socket) => {
         const err = 'Driver not found';
         logger.error(err);
         cb?.({ success: false, error: err });
-        io.to(`drivers:online`).emit('driver:location:update', {
+        // io.to(`drivers:online`).emit('driver:location:update', {
+        io.emit('driver:location:update', {
           driverId,
           lat,
           lng,
@@ -200,7 +202,8 @@ export default (io: Server, socket: Socket) => {
       logger.info(`SOCKET driver location: ${driverId},  ${lat}, ${lng}`);
 
       cb?.({ success: true, driver });
-      io.to(`drivers:online`).emit('driver:location:update', {
+      // io.to(`drivers:online`).emit('driver:location:update', {
+      io.emit('driver:location:update', {
         success: true,
         driver,
         updatedAt: new Date(),
