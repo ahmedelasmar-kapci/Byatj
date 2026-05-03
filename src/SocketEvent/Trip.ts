@@ -722,7 +722,7 @@ export default (io: Server, socket: Socket) => {
 
       const roomName = tripRoom(tripId);
       io.to(roomName).emit('trip:completed', {
-        tripId,
+        success: true,trip,
       });
 
       cb?.({ success: true, trip });
