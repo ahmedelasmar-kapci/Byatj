@@ -869,7 +869,7 @@ router.get(
       });
     } catch (err) {
       console.error('Error in /trips/user/:riderId', err);
-      return res.status(500).json({ error: 'Internal server error' });
+      return res.status(500).json({ error: 'Error in /trips/user/:riderId' });
     }
   },
 );
