@@ -854,18 +854,18 @@ router.get(
 
       // Fetch paginated trips for this user
       const trips = await Trip.find({ riderId })
-        .skip(skip)
-        .limit(limit)
+        // .skip(skip)
+        // .limit(limit)
         .sort({ tripTime: -1 }); // Most recent first
 
       return res.status(200).json({
         success: true,
         data: trips,
         total: totalTrips,
-        page,
-        limit,
-        totalPages: Math.ceil(totalTrips / limit),
-        hasMore: page * limit < totalTrips,
+        // page,
+        // limit,
+        // totalPages: Math.ceil(totalTrips / limit),
+        // hasMore: page * limit < totalTrips,
       });
     } catch (err) {
       console.error('Error in /trips/user/:riderId', err);
