@@ -826,7 +826,8 @@ router.get(
  * Returns: Paginated list of all trips for a specific user
  */
 router.get(
-  '/trips/rider/:riderId',
+  // '/trips/rider/:riderId',
+  '/trips/rider/nopage/:riderId',
   optionalAuthenticateJWT(passport),
   async (req: Request, res: Response) => {
     try {
