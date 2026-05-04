@@ -607,13 +607,20 @@ export default (io: Server, socket: Socket) => {
         return;
       }
 
-      if (!['requested', 'negotiating', 'cancelled'].includes(trip.status)) {
+      if (['cancelled'].includes(trip.status)) {
         cb?.({
           success: false,
-          error: 'Trip cannot be cancelled in current status',
+          error: 'Trip has already been cancelled in current status',
         });
         return;
       }
+      // if (!['requested', 'negotiating', 'cancelled'].includes(trip.status)) {
+      //   cb?.({
+      //     success: false,
+      //     error: 'Trip cannot be cancelled in current status',
+      //   });
+      //   return;
+      // }
 
       trip.status = 'cancelled';
 
@@ -631,7 +638,7 @@ export default (io: Server, socket: Socket) => {
       cb?.({ success: true, trip });
     } catch (err) {
       console.error('Error in trip:cancelled', err);
-      cb?.({ success: false, error: 'Internal server error' });
+      cb?.({ success: false, error: 'Error in trip:cancelled' });
     }
   });
 
@@ -722,7 +729,8 @@ export default (io: Server, socket: Socket) => {
 
       const roomName = tripRoom(tripId);
       io.to(roomName).emit('trip:completed', {
-        success: true,trip,
+        success: true,
+        trip,
       });
 
       cb?.({ success: true, trip });
